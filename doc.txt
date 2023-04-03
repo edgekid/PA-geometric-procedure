@@ -1,0 +1,12 @@
+modifying cone => adding constraints/generators (D.6.)
+4.5.1 Polyhedra: Polhedra sunt transformate in coneuri prin adaugarea unui argument in plus (explicatie Section 2)
+5.4.1 + 7.5: Dual vs Primal
+7.23.3 mauybe useful???
+!!!! inhomogeneous input: (a1 a2 a3 b) este: a1*x1 + a2*x2 + a3*x3 >= -b
+
+for nonpointed cones!! 7.13.1: nu ti se da decat un vector din subspace!! trebuie sa completezi hilbert basisu
+
+
+cand se calculaeaza kernelul matricii, se foloseste LLL reduction pe basis
+pt intersectia semilinear seturilor https://www.cs.ox.ac.uk/people/christoph.haase/home/publication/haa-18/haa-18.pdf
+normaliz sets nonnegative parameter by default whenever we want to solve the integer solutions of a system of linear equations
