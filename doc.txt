@@ -6,7 +6,14 @@ modifying cone => adding constraints/generators (D.6.)
 
 for nonpointed cones!! 7.13.1: nu ti se da decat un vector din subspace!! trebuie sa completezi hilbert basisu
 
+5.2.8 ConeDecomposition - triangulation?
+
+7.20 semiopen + 2.3.3
 
 cand se calculaeaza kernelul matricii, se foloseste LLL reduction pe basis
 pt intersectia semilinear seturilor https://www.cs.ox.ac.uk/people/christoph.haase/home/publication/haa-18/haa-18.pdf
 normaliz sets nonnegative parameter by default whenever we want to solve the integer solutions of a system of linear equations
+
+arrangement: same hyperplanes?? (break?) NO
+
+4.1.17. - normaliz computes positive orhant if we have only a system of equations.
