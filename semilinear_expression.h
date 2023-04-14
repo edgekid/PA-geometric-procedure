@@ -7,7 +7,8 @@ using namespace libnormaliz;
 typedef mpz_class Integer;
 typedef mpq_class Rational;
 typedef pair< vector<Integer>, Integer > Hyperplane;
-typedef vector< pair< Matrix<Integer>, Matrix<Integer> > > SemilinearSet;
+typedef pair< Matrix<Integer>, Matrix<Integer> > HybridLS;
+typedef vector< HybridLS > SemilinearSet;
 /*
 Semilinear sets are finite unions of hybird linear sets.
 Each hybrid linear set is a pair of 2 matrices - the first contains the vectors of the polytope, the second the basis of the recession cone. 
@@ -50,7 +51,7 @@ public:
     void Union();
     void ProjectCoordinateGen(int c); //project away coordinate c for the polyhedra in generator representation
     void ProjectCoordinateConstr(int c); //project away coordinate c for the polyhedra in constraint representation
-    
+
     bool in_constraint; //0 if the node represents a polyhedron in generator representation; 1 if in constraint representation
     int dim;
     vector<int> dv;

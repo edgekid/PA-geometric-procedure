@@ -1,6 +1,7 @@
 #include "semilinear_expression.h"
 #include "arrangement.h"
 #include "utils.h"
+#include "semilinear_set_operations.h"
 
 namespace geometric {
 
@@ -14,12 +15,12 @@ SENode::SENode() : dim(0), op(0), complement(false) {
     init();
 }
 
-SENode::SENode(int dim, short op, bool complement, SENode* left, SENode* right) : dim(dim + 1), op(op), complement(complement), left_child(left), right_child(right) {
-    sys_ineq = Matrix<Integer>(0);
+SENode::SENode(int dim, short op, bool complement, SENode* left, SENode* right) : dim(dim), op(op), complement(complement), left_child(left), right_child(right) {
+    sys_ineq = Matrix<Integer>(0, dim);
     init();
 }
 
-SENode::SENode(int dim, const vector<Integer>& v, short op, bool complement, SENode* left, SENode* right) : dim(dim + 1), op(op), complement(complement), left_child(left), right_child(right) {
+SENode::SENode(int dim, const vector<Integer>& v, short op, bool complement, SENode* left, SENode* right) : dim(dim), op(op), complement(complement), left_child(left), right_child(right) {
     sys_ineq = Matrix<Integer>(v);
     init();
 }
@@ -47,9 +48,6 @@ void SENode::PrintSolutions() {
 }
 
 void SENode::ComputeSubtree(bool first_vertex) {
-    if(complement) {
-        return;
-    }
     if(op != 0) { //not a leaf
         if(left_child) {
             left_child->ComputeSubtree(false);
@@ -67,6 +65,10 @@ void SENode::ComputeSubtree(bool first_vertex) {
 
     if(first_vertex && in_constraint) { //If this is the node defining the formula, we compute its semi-linear set if its not been computed already
         TranslateToSemilinearSet();
+    }
+
+    if(complement) {
+        Complement();
     }
 
 }
@@ -95,6 +97,7 @@ void SENode::ComputeOperation() {
                 semilinear_set = left_child->semilinear_set;
             }
             dv = left_child->dv;
+            dim = left_child->dim;
             break;
     }
 }
@@ -115,13 +118,12 @@ void SENode::TranslateToSemilinearSet() {
 
     Matrix<Integer> polytope = polyhedron.getModuleGeneratorsMatrix();
 
-    //set recession cone's dimension in case it is empty.
-    recession_cone.set_nc(polytope.nr_of_columns());
+    //Get rid of homogenizing coordinates (0 and 1)
+    dim--;
+    polytope.resize_columns(dim);
+    recession_cone.resize_columns(dim);
 
     semilinear_set.push_back(make_pair(polytope, recession_cone));
-
-    //Get rid of homogenizing coordinates (0 and 1)
-    ProjectCoordinateGen(dim);
 
     in_constraint = false;
 }
@@ -186,12 +188,13 @@ void SENode::Union() {
     //if the children are still in constraint representation, now it's time to translate it
     if(left_child->in_constraint) {
         left_child->TranslateToSemilinearSet();
+        dim = left_child->dim;
     }
-    semilinear_set.insert(semilinear_set.end(), left_child->semilinear_set.begin(), left_child->semilinear_set.end());
     if(right_child->in_constraint) {
         right_child->TranslateToSemilinearSet();
+        dim = right_child->dim;
     }
-    semilinear_set.insert(semilinear_set.end(), right_child->semilinear_set.begin(), right_child->semilinear_set.end());
+    add(semilinear_set, left_child->semilinear_set, right_child->semilinear_set);
 
     in_constraint = false;
 }
@@ -216,109 +219,101 @@ void SENode::Intersection() {
         dim = right_child->dim;
     }
 
-    if(left_child->semilinear_set.empty() || right_child->semilinear_set.empty()) {
-        return;
-    }
-
-    //we find nonnegative solutions to (Q|-R) * x = v
-    for(auto li : left_child->semilinear_set) {
-        for(auto lj : right_child->semilinear_set) {
-            //Q = li.second
-            Matrix<Integer> Q = li.second.transpose();
-            Matrix<Integer> A(Q);
-            //-R = -lj.second
-            for(auto vec: lj.second.get_elements()) {
-                v_scalar_multiplication(vec, Integer(-1));
-                A.append_column(vec);
-            }
-
-            pair< Matrix<Integer>, Matrix<Integer> > hybrid_ls;
-
-            //first get solutions to homogeneous system (Q|-R) * x = 0
-            Cone<Integer> homA(Type::equations, A);
-            homA.compute(ConeProperty::HilbertBasis);
-            Matrix<Integer> P = homA.getHilbertBasisMatrix();
-            //we take the transpose of the matrix since the vectors spanning the set of solutions are the ROWS of the matrix
-            P = P.transpose();
-            //We project the solution set onto the components corresponding to how many vectors there are in Q.
-            for(int i = 0; i < lj.second.nr_of_rows(); ++i) {
-                P.remove_row(P.nr_of_rows() - 1);
-            }
-            hybrid_ls.second = Q.multiplication(P);
-            hybrid_ls.second = hybrid_ls.second.transpose();
-
-            //we get in a set all possible vectors of the form v = d - c
-            set< pair< vector<Integer>, vector<Integer> > > rhs_vecs;
-            for(auto c : li.first.get_elements()) {
-                for(auto d : lj.first.get_elements()) {
-                    size_t s = d.size();
-                    for (size_t i = 0; i < s; i++) {
-                        // d[i] -= c[i];
-                        d[i] = -(d[i] - c[i]); //we keep -v instead of v, where v = d - c
-                    }
-                    rhs_vecs.insert(make_pair(d, c));
-                }
-            }
-
-            map<vector<Integer>, bool> vectors_in_hls; //placeholder: ineficient
-
-            //set dimenstion of hybrid linear set polytope
-            hybrid_ls.first.set_nc(li.first[0].size());
-            //The integer solutions to the system of linear equations for each d - c.
-            for(auto elem : rhs_vecs) {
-                Matrix<Integer> AA(A);
-                AA.append_column(elem.first);
-                
-                Cone<Integer> poly(Type::inhom_equations, AA);
-                poly.compute(ConeProperty::ModuleGenerators);
-                Matrix<Integer> E = poly.getModuleGeneratorsMatrix();
-                //We project the set of vectors onto the components corresponding to how many vectors there are in Q + 1 (+1 is for the fact that we computed inhomogeneous equations)
-                E = E.transpose();
-                for(int i = 0; i <= lj.second.nr_of_rows(); ++i) {
-                    E.remove_row(E.nr_of_rows() - 1);
-                }
-                //We get the set of vectors Q * E
-                E = Q.multiplication(E);
-                //The vectors will be as columns and we want them rows since we represent hybrid linear sets' vectors as rows
-                E = E.transpose();
-                //Add vector c to the set of vectors
-                for(size_t i = 0; i < E.nr_of_rows(); ++i) {
-                    for(size_t j = 0; j < E.nr_of_columns(); ++j){
-                        E[i][j] += elem.second[j];
-                    }
-                    // cout<<E[i]<<"\n";
-                    if(!vectors_in_hls[E[i]]) {
-                        vectors_in_hls[E[i]] = 1;
-                        hybrid_ls.first.append(E[i]);
-                    }
-                }
-            }
-
-            semilinear_set.push_back(hybrid_ls);
-        }
-    }
+    intersect(semilinear_set, left_child->semilinear_set, right_child->semilinear_set);
 }
 
 void SENode::Complement() {
+    //make all hybrid linear sets in current semilinear set have linearly independent (proper) periods
+    SemilinearSet proper_sls;
+    for(auto h : semilinear_set) {
+        get_linearly_independent_sl(proper_sls, h);
+    }
+
     vector<Hyperplane> hyperplanes;
-    for(auto hl : semilinear_set) {
+    map<Hyperplane, bool> included;
+    vector<Integer> sv(dim);
+    for(auto hl : proper_sls) {
         //We get the support hyperplanes for each recession cone of each hybrid linear set.
-        Cone<Integer> recession_cone(Type::cone, hl.second);
-        recession_cone.compute(ConeProperty::SupportHyperplanes);
-        vector<vector<Integer>> support_hyperplanes = recession_cone.getSupportHyperplanes();
+        vector<vector<Integer>> support_hyperplanes;
+        if(hl.second.nr_of_rows()) {
+            Cone<Integer> recession_cone(Type::cone, hl.second);
+            recession_cone.compute(ConeProperty::SupportHyperplanes);
+            support_hyperplanes = recession_cone.getSupportHyperplanes();
+        }
 
         //We add the hyperplanes defining each cone in the hybrid linear set
         for(auto vec : hl.first.get_elements()) {
             for(auto v : support_hyperplanes) {
-                hyperplanes.push_back(Hyperplane(v, -v_scalar_product(v, vec)));
+                Hyperplane h = Hyperplane(v, v_scalar_product(v, vec));
+                if(!included[h]) {//we make sure we dont include the same hyperplane twice
+                    hyperplanes.push_back(h);
+                    included[h] = 1; 
+                }
+            }
+            //We include in the hybrid linear set the hyperplanes for the standard basis - used to separate points from hybrid linear sets that have no periods or lie on the same supporting hyperplanes
+            for(int i = 0; i < dim; ++i) {
+                sv[i]++;
+                Hyperplane h = Hyperplane(sv, v_scalar_product(sv, vec));
+                if(!included[h]) {//we make sure we dont include the same hyperplane twice
+                    hyperplanes.push_back(h);
+                    included[h] = 1; 
+                }
+                sv[i]--;
             }
         }
     }
-
     //We get the arrangement of these hyperplanes
     Arrangement *arr = new Arrangement(dim);
     arr->ConstructArrangement(hyperplanes);
     SemilinearSet s = arr->GetZArrangement();
+
+    // for(auto h : proper_sls) {
+    //     cout<<"base:\n";
+    //     for(int i = 0; i < h.first.nr_of_rows(); ++i) {
+    //         cout<<h.first[i];
+    //     }
+    //     cout<<"periodic\n";
+    //     for(int i = 0; i < h.second.nr_of_rows(); ++i) {
+    //         cout<<h.second[i];
+    //     }
+    //     cout<<"\n";
+    // }
+
+    semilinear_set.clear();
+    map<vector<vector<Integer>>, int> vis_pset;
+    for(auto h : s) {
+        // Matrix<Integer> E(0, dim);
+        // //get the base points in hybrid linear set that are not in the initial semilinear set.
+        // int nr = h.first.nr_of_rows();
+        // for(int i = 0; i < nr; ++i) {
+        //     if(!get_membership(h.first[i], proper_sls)) {
+        //         E.append(h.first[i]);
+        //     }
+        // }
+
+        // //making sure periodic sets are within stricly one hybrid linear set
+        // int j = vis_pset[h.second.get_elements()];
+        // if(j) {
+        //     semilinear_set[j - 1].first.append(E);
+        // }
+        // else {
+        //     semilinear_set.push_back(make_pair(E, h.second));
+        //     vis_pset[h.second.get_elements()] = semilinear_set.size();
+        // }
+
+        //if at least one point is inside the initial semilinear set, the whole base of the current hybrid linear set is in the initial semilinear set
+        if(!get_membership(h.first[0], proper_sls)) {
+            //making sure periodic sets are within stricly one hybrid linear set
+            int j = vis_pset[h.second.get_elements()];
+            if(j) {
+                semilinear_set[j - 1].first.append(h.first);
+            }
+            else {
+                semilinear_set.push_back(h);
+                vis_pset[h.second.get_elements()] = semilinear_set.size();
+            }
+        }
+    }
 }
     
 }

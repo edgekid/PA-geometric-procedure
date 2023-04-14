@@ -20,12 +20,4 @@ inline vector<mpq_class> get_direction(const vector<mpq_class> &v1, const vector
     return e_dir;
 }
 
-inline mpz_class get_common_denom(const vector<mpq_class> &v) {
-    mpz_class x = 1;
-    for(auto a : v) {
-        x *= a.get_den();
-    }
-    return x;
-}
-
 }

@@ -125,7 +125,15 @@ void Arrangement::CalculateInsidePoint(FaceNode* f) {
             //We get the basis of the kernel of M which will consist of only one vector and append it to M in order to solve it uniquely.
             Matrix<Integer> kerM = M.kernel(false);
             M.append(kerM[0]);
-            R.push_back(0); 
+            
+            //We make it so the line doesn't pass through its only endpoint
+            FaceNode *v = *f->subfaces.begin();
+            if(dot_product(v->point, kerM[0]) == 0) {
+                R.push_back(1);
+            }
+            else {
+                R.push_back(0);
+            }
         }
         else {
             M.append(mp_etoh[f].first);
@@ -207,7 +215,7 @@ void Arrangement::AddHyperplane(Hyperplane h) {
             }
             vector<Rational> edge_dir = get_direction(v->point, edge->point);
             int t = 0;
-            while(edge_dir[t++] == 0);
+            while(edge_dir[t++] == Rational(0));
             Rational lambda = e_dir[t - 1] / edge_dir[t - 1];
             v_scalar_multiplication(edge_dir, lambda);
 
@@ -364,6 +372,18 @@ void Arrangement::AddHyperplane(Hyperplane h) {
         }
     }
 
+    // for(int k = 0; k <= dim; ++k) {
+    //     cout<<k<<" dim:\n";
+    //     for(auto f : L[k]) {
+    //         cout<<f->point;
+    //         cout<<"subfaces\n";
+    //         for(auto sf : f->subfaces) {
+    //             cout<<sf->point;
+    //         }
+    //         cout<<COLOR(marked_faces[f])<<" xd\n";
+    //     }
+    // }
+
     //Phase 3: Manipulate all marked faces inside the lists and create new faces if needed.
     for(int k = 0; k <= dim; ++k) {
         int s = L[k].size();
@@ -381,9 +401,9 @@ void Arrangement::AddHyperplane(Hyperplane h) {
                 //Replace g by the two parts created by h dividing g.
                 vector<int> g_h = g->aff;
                 FaceNode *g_p = new FaceNode(g_h, k);
-                g_p->aff = g->aff;
+                // g_p->aff = g->aff;
                 FaceNode *g_n = new FaceNode(g_h, k);
-                g_n->aff = g->aff;
+                // g_n->aff = g->aff;
 
                 marked_faces[g_n] = GREY;
                 marked_faces[g_p] = GREY;
@@ -393,7 +413,7 @@ void Arrangement::AddHyperplane(Hyperplane h) {
                 g_h.push_back(index);
                 //The newly created face contained in h
                 FaceNode *f = new FaceNode(g_h, k - 1);
-                f->aff = g_h;
+                // f->aff = g_h;
 
                 marked_faces[f] = BLACK;
                 L[k - 1].push_back(f);
@@ -578,8 +598,28 @@ void Arrangement::ConstructArrangement(vector<Hyperplane> hyperplanes) {
     for(int i = 0; i < n; ++i) {
         if(!in_arrangement[i]) {
             AddHyperplane(hyperplanes[i]);
-        }     
+        }
     }
+
+    // Q.push(first);
+    // map<FaceNode*, bool> inQ2;
+
+    // while(!Q.empty()) {
+    //     FaceNode *cur = Q.front(); 
+    //     Q.pop();
+
+    //     cout<<cur->dim<<" ; "<<cur->point<<"-\nsubfaces: ";
+    //     for(auto face : cur->subfaces) {
+    //         cout<<face->point<<" ";
+    //     }
+    //     cout<<"\n";
+    //     for(auto face : cur->superfaces) {
+    //         if(!inQ2[face]) {
+    //             Q.push(face);
+    //             inQ2[face] = 1;
+    //         }
+    //     }
+    // }
 }
 
 //Get the arrangement as a set of faces where each face contains vertices that represent its polytope and rays that represent its recession cone
@@ -629,7 +669,7 @@ SemilinearSet Arrangement::GetZArrangement(){
     while(!Q.empty()) {
         FaceNode *cur = Q.front(); 
         Q.pop();
-        if(cur->dim != -1 || cur->dim != dim + 1) {
+        if(cur->dim != -1 && cur->dim != dim + 1) {
             Matrix<Integer> eq(0, d), ineq(0, d);
             vector<Integer> eq_rhs, ineq_rhs;
             for(int i = 0; i < Arr.nr_of_rows(); ++i) {
@@ -637,25 +677,30 @@ SemilinearSet Arrangement::GetZArrangement(){
                     continue;
                 }
                 //We calculate the position vector of the current face and add inequalities and equations accordingly
-                Rational d = dot_product(cur->point, Arr[i]) - RHS[i];
-                if(!d) {
+                Rational dp = dot_product(cur->point, Arr[i]) - RHS[i];
+                if(!dp) {
                     eq.append(Arr[i]);
-                    eq_rhs.push_back(RHS[i]);
+                    eq_rhs.push_back(-RHS[i]);
                 }
-                else if(d < 0){
-                    ineq.append(Arr[i]);
+                else if(dp < 0){
+                    vector<Integer> v = Arr[i];
+                    v_scalar_multiplication(v, Integer(-1));
+                    ineq.append(v);
                     ineq_rhs.push_back(RHS[i] - 1); //we want to exclude the subfaces of the current face so we get a disjoint partition of Z^d
                 }
                 else {
                     ineq.append(Arr[i]);
-                    ineq_rhs.push_back(RHS[i] + 1); //we want to exclude the subfaces of the current face so we get a disjoint partition of Z^d
+                    ineq_rhs.push_back(-(RHS[i] + 1)); //we want to exclude the subfaces of the current face so we get a disjoint partition of Z^d
                 }
             }
             eq.append_column(eq_rhs);
             ineq.append_column(ineq_rhs);
-            
             Cone<Integer> poly(Type::inhom_inequalities, ineq, Type::inhom_equations, eq); 
             poly.compute(ConeProperty::HilbertBasis);
+            Matrix<Integer> polytope = poly.getModuleGeneratorsMatrix();
+            if(!polytope.nr_of_rows()) {
+                continue;
+            }
             Matrix<Integer> recession_cone = poly.getHilbertBasisMatrix();
             //Get the maximal subspace in case it contains minimal faces
             vector<vector<Integer>> max_subspace = poly.getMaximalSubspace();
@@ -665,10 +710,25 @@ SemilinearSet Arrangement::GetZArrangement(){
                 recession_cone.append(v);
             }
 
-            Matrix<Integer> polytope = poly.getModuleGeneratorsMatrix();
 
-            //set recession cone's dimension in case it is empty.
-            recession_cone.set_nc(polytope.nr_of_columns());
+            // cout<<"eq\n";
+            // for(int i = 0; i < eq.nr_of_rows(); ++i) {
+            //     cout<<eq[i];
+            // }
+            // cout<<"ineq\n";
+            // for(int i = 0; i < ineq.nr_of_rows(); ++i) {
+            //     cout<<ineq[i];
+            // }
+            // cout<<"base:\n";
+            // for(int i = 0; i < recession_cone.nr_of_rows(); ++i) {
+            //     cout<<recession_cone[i];
+            // }
+            // cout<<"periodic\n";
+            // for(int i = 0; i < polytope.nr_of_rows(); ++i) {
+            //     cout<<polytope[i];
+            // }
+            // cout<<"\n";
+
 
             polytope.resize_columns(d);
             recession_cone.resize_columns(d);
@@ -676,7 +736,7 @@ SemilinearSet Arrangement::GetZArrangement(){
         }
 
         for(auto face : cur->superfaces) {
-            if(inQ[face]) {
+            if(!inQ[face]) {
                 Q.push(face);
                 inQ[face] = 1;
             }

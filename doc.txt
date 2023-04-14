@@ -17,3 +17,7 @@ normaliz sets nonnegative parameter by default whenever we want to solve the int
 arrangement: same hyperplanes?? (break?) NO
 
 4.1.17. - normaliz computes positive orhant if we have only a system of equations.
+
+matrix solving algo Gaussian elimination - Complexity O(m * n * min(n, m)) for mxn matrix
+
+fundamental parallelipied + affine monoid
