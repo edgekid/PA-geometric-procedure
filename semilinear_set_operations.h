@@ -66,7 +66,7 @@ inline void intersect(SemilinearSet &s, SemilinearSet &a, SemilinearSet &b) {
                 }
             }
 
-            map<vector<Integer>, bool> vectors_in_hls; //placeholder: ineficient
+            map<vector<Integer>, bool> vectors_in_hls; //placeholder
 
             //set dimenstion of hybrid linear set polytope
             hybrid_ls.first.set_nc(dim);
@@ -190,14 +190,13 @@ inline bool get_membership(vector<Integer> &v, SemilinearSet &s) {
         } 
         Matrix<Integer> P = h.second.transpose();
         for(int i = 0; i < (int)h.first.nr_of_rows(); ++i) {
-            Integer denom = 0;
             vector<Integer> c = h.first[i];
             for (size_t j = 0; j < len; ++j) {
                 c[j] = v[j] - c[j];
             }
-            vector<Integer> p = P.solve_rectangular(c, denom);
+            vector<Integer> p = P.solve_ZZ(c);
 
-            if(denom == 1 && p.size()) {
+            if(p.size()) {
                 //solution is integer so system is satisfiable. Thus, v is in the hybrid linear set
                 bool is_positive = true;
                 for(size_t i = 0; i < p.size(); ++i) {

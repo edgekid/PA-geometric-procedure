@@ -267,51 +267,26 @@ void SENode::Complement() {
     arr->ConstructArrangement(hyperplanes);
     SemilinearSet s = arr->GetZArrangement();
 
-    // for(auto h : proper_sls) {
-    //     cout<<"base:\n";
-    //     for(int i = 0; i < h.first.nr_of_rows(); ++i) {
-    //         cout<<h.first[i];
-    //     }
-    //     cout<<"periodic\n";
-    //     for(int i = 0; i < h.second.nr_of_rows(); ++i) {
-    //         cout<<h.second[i];
-    //     }
-    //     cout<<"\n";
-    // }
-
     semilinear_set.clear();
     map<vector<vector<Integer>>, int> vis_pset;
     for(auto h : s) {
-        // Matrix<Integer> E(0, dim);
-        // //get the base points in hybrid linear set that are not in the initial semilinear set.
-        // int nr = h.first.nr_of_rows();
-        // for(int i = 0; i < nr; ++i) {
-        //     if(!get_membership(h.first[i], proper_sls)) {
-        //         E.append(h.first[i]);
-        //     }
-        // }
-
-        // //making sure periodic sets are within stricly one hybrid linear set
-        // int j = vis_pset[h.second.get_elements()];
-        // if(j) {
-        //     semilinear_set[j - 1].first.append(E);
-        // }
-        // else {
-        //     semilinear_set.push_back(make_pair(E, h.second));
-        //     vis_pset[h.second.get_elements()] = semilinear_set.size();
-        // }
-
-        //if at least one point is inside the initial semilinear set, the whole base of the current hybrid linear set is in the initial semilinear set
-        if(!get_membership(h.first[0], proper_sls)) {
-            //making sure periodic sets are within stricly one hybrid linear set
-            int j = vis_pset[h.second.get_elements()];
-            if(j) {
-                semilinear_set[j - 1].first.append(h.first);
+        Matrix<Integer> E(0, dim);
+        //get the base points in hybrid linear set that are not in the initial semilinear set.
+        int nr = h.first.nr_of_rows();
+        for(int i = 0; i < nr; ++i) {
+            if(!get_membership(h.first[i], proper_sls)) {
+                E.append(h.first[i]);
             }
-            else {
-                semilinear_set.push_back(h);
-                vis_pset[h.second.get_elements()] = semilinear_set.size();
-            }
+        }
+
+        //making sure periodic sets are within stricly one hybrid linear set
+        int j = vis_pset[h.second.get_elements()];
+        if(j) {
+            semilinear_set[j - 1].first.append(E);
+        }
+        else {
+            semilinear_set.push_back(make_pair(E, h.second));
+            vis_pset[h.second.get_elements()] = semilinear_set.size();
         }
     }
 }

@@ -6,6 +6,8 @@ modifying cone => adding constraints/generators (D.6.)
 
 for nonpointed cones!! 7.13.1: nu ti se da decat un vector din subspace!! trebuie sa completezi hilbert basisu
 
+support hyperplanes
+
 5.2.8 ConeDecomposition - triangulation?
 
 7.20 semiopen + 2.3.3
