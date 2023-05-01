@@ -4,7 +4,7 @@
 
 namespace geometric {
 
-Arrangement::Arrangement(int dim) : dim(dim), d(dim) {
+Arrangement::Arrangement(const vector<Hyperplane> &hyperplanes, const vector<Matrix<Integer>> &p_sets, int dim) : dim(dim), d(dim), hyperplanes(hyperplanes), periodic_sets(p_sets) {
     first = new FaceNode(vector<int>(), -1);
     Arr = Matrix<Integer>(0, d);
 }
@@ -372,18 +372,6 @@ void Arrangement::AddHyperplane(Hyperplane h) {
         }
     }
 
-    // for(int k = 0; k <= dim; ++k) {
-    //     cout<<k<<" dim:\n";
-    //     for(auto f : L[k]) {
-    //         cout<<f->point;
-    //         cout<<"subfaces\n";
-    //         for(auto sf : f->subfaces) {
-    //             cout<<sf->point;
-    //         }
-    //         cout<<COLOR(marked_faces[f])<<" xd\n";
-    //     }
-    // }
-
     //Phase 3: Manipulate all marked faces inside the lists and create new faces if needed.
     for(int k = 0; k <= dim; ++k) {
         int s = L[k].size();
@@ -536,7 +524,7 @@ void Arrangement::AddHyperplane(Hyperplane h) {
 
 }
 
-void Arrangement::ConstructArrangement(vector<Hyperplane> hyperplanes) {
+void Arrangement::ConstructArrangement() {
     //Step 1: Construct initial arrangement.
     int n = hyperplanes.size();
     int j = 0;
@@ -601,25 +589,6 @@ void Arrangement::ConstructArrangement(vector<Hyperplane> hyperplanes) {
         }
     }
 
-    // Q.push(first);
-    // map<FaceNode*, bool> inQ2;
-
-    // while(!Q.empty()) {
-    //     FaceNode *cur = Q.front(); 
-    //     Q.pop();
-
-    //     cout<<cur->dim<<" ; "<<cur->point<<"-\nsubfaces: ";
-    //     for(auto face : cur->subfaces) {
-    //         cout<<face->point<<" ";
-    //     }
-    //     cout<<"\n";
-    //     for(auto face : cur->superfaces) {
-    //         if(!inQ2[face]) {
-    //             Q.push(face);
-    //             inQ2[face] = 1;
-    //         }
-    //     }
-    // }
 }
 
 //Get the arrangement as a set of faces where each face contains vertices that represent its polytope and rays that represent its recession cone
@@ -660,88 +629,182 @@ vector<Polyhedron> Arrangement::GetArrangement(){
 
 //Get the arrangement as a semilinear set
 SemilinearSet Arrangement::GetZArrangement(){
-
     queue<FaceNode*> Q;
-    map<FaceNode*, bool> inQ;
+    map<FaceNode*, Polyhedron> inQ;
     Q.push(first);
     SemilinearSet s;
 
     while(!Q.empty()) {
         FaceNode *cur = Q.front(); 
         Q.pop();
+
+        // cout<<cur->dim<<":\n";
+    
         if(cur->dim != -1 && cur->dim != dim + 1) {
-            Matrix<Integer> eq(0, d), ineq(0, d);
-            vector<Integer> eq_rhs, ineq_rhs;
-            for(int i = 0; i < Arr.nr_of_rows(); ++i) {
-                if(i >= dim && i < d) { //Additional hyperplane. Ignore it.
-                    continue;
+            if(cur->dim == 0) {
+                bool is_int = 1;
+                vector<Integer> v;
+                for(auto &p : cur->point) {
+                    if(p.get_den() != 1) {
+                        is_int = 0;
+                        break;
+                    }
+                    v.push_back(p.get_num());
                 }
-                //We calculate the position vector of the current face and add inequalities and equations accordingly
-                Rational dp = dot_product(cur->point, Arr[i]) - RHS[i];
-                if(!dp) {
-                    eq.append(Arr[i]);
-                    eq_rhs.push_back(-RHS[i]);
-                }
-                else if(dp < 0){
-                    vector<Integer> v = Arr[i];
-                    v_scalar_multiplication(v, Integer(-1));
-                    ineq.append(v);
-                    ineq_rhs.push_back(RHS[i] - 1); //we want to exclude the subfaces of the current face so we get a disjoint partition of Z^d
-                }
-                else {
-                    ineq.append(Arr[i]);
-                    ineq_rhs.push_back(-(RHS[i] + 1)); //we want to exclude the subfaces of the current face so we get a disjoint partition of Z^d
+                if(is_int) {
+                    s.push_back(make_pair(Matrix<Integer>(v), Matrix<Integer>(0, dim)));
                 }
             }
-            eq.append_column(eq_rhs);
-            ineq.append_column(ineq_rhs);
-            Cone<Integer> poly(Type::inhom_inequalities, ineq, Type::inhom_equations, eq); 
-            poly.compute(ConeProperty::HilbertBasis);
-            Matrix<Integer> polytope = poly.getModuleGeneratorsMatrix();
-            if(!polytope.nr_of_rows()) {
-                continue;
+            else if(cur->dim == 1 && cur->subfaces.size() == 1) {
+                //This is a ray. We make sure that condition (3) of an Z-Arrangement holds, so we multiply the ray by an integer lambda s.t. lamba * ray is in L(0, Pi), for every Pi where ray is in cone(Pi)
+                vector<Integer> v = get_int_vector(*inQ[cur].rays.begin()).first;
+                Integer lambda = 1;
+                for(const auto &p_set : periodic_sets) {
+                    //We check whether v is inside the cone generated by p_set.
+                    Integer denom;
+                    vector<Integer> p = p_set.solve_rectangular(v, denom);
+
+                    if(p.size()) {
+                        //solution is integer so system is satisfiable. Thus, v is in the hybrid linear set
+                        bool is_positive = true;
+                        for(size_t i = 0; i < p.size(); ++i) {
+                            if(p[i] < 0) {
+                                is_positive = false;
+                                break;
+                            }
+                        }
+                        if(is_positive && denom > 0) {
+                            //v is inside p_set, so now we make sure v is in L(0, p_set) - i.e. multiply lambda by denom
+                            lambda *= denom;
+                        }
+                    }
+                }
+
+                //Now, the vector for the ray is in Z^d.
+                vector<Rational> v2;
+                for(const auto &x : v) {
+                    v2.push_back(x * lambda);
+                }
+                inQ[cur].rays.erase(inQ[cur].rays.begin());
+                inQ[cur].rays.insert(v2);
+
+                // cout<<v2<<"v2\n";
             }
-            Matrix<Integer> recession_cone = poly.getHilbertBasisMatrix();
-            //Get the maximal subspace in case it contains minimal faces
-            vector<vector<Integer>> max_subspace = poly.getMaximalSubspace();
-            for(auto v : max_subspace) { //libnormaliz returns basis for the lattice of the maximal subspace modulo unit group - need to include their inverses as well
-                recession_cone.append(v);
-                v_scalar_multiplication(v, Integer(-1));
-                recession_cone.append(v);
+            
+            if(cur->dim != 0) {
+                //We compute the support hyperplanes of the interior of the face
+                Matrix<Integer> ineq(0, d);
+                vector<Integer> ineq_rhs;
+                for(int i = 0; i < Arr.nr_of_rows(); ++i) {
+                    if(i >= dim && i < d) { //Additional hyperplane. Ignore it.
+                        continue;
+                    }
+                    //We calculate the position vector of the current face and add inequalities and equations accordingly
+                    Rational dp = dot_product(cur->point, Arr[i]) - RHS[i];
+                    if(!dp) {
+                    }
+                    else if(dp < 0){
+                        vector<Integer> v = Arr[i];
+                        v_scalar_multiplication(v, Integer(-1));
+                        ineq.append(v);
+                        ineq_rhs.push_back(RHS[i] - 1); //we want to exclude the subfaces of the current face so we get a disjoint partition of Z^d
+                    }
+                    else {
+                        ineq.append(Arr[i]);
+                        ineq_rhs.push_back(-(RHS[i] + 1)); //we want to exclude the subfaces of the current face so we get a disjoint partition of Z^d
+                    }
+                }
+                ineq.append_column(ineq_rhs);
+                
+                //We triangulate the polyhedron inQ[cur].
+                Matrix<Integer> vert(0, d + 1), rays(0, d);
+                for(const auto &it : inQ[cur].vertices) {
+                    pair<vector<Integer>, Integer> t = get_int_vector(it);
+                    t.first.push_back(t.second);
+                    vert.append(t.first);
+                }
+
+                map<vector<Integer>, vector<Integer>> min_vec_to_vec;
+                for(const auto &it : inQ[cur].rays) {
+                    vector<Integer> t;
+                    //The rays will should in Z^d by this point
+                    for(const auto &x : it) {
+                        assert(x.get_den() == 1);
+                        t.push_back(x.get_num());
+                    }
+                    rays.append(t);
+                    min_vec_to_vec[get_min_vec(t)] = t;
+                }
+                Cone<Integer> poly(Type::vertices, vert, Type::cone, rays, Type::inhom_inequalities, ineq);
+                poly.compute(ConeProperty::Triangulation);
+                pair<vector<SHORTSIMPLEX<Integer>>, Matrix<Integer>> decomp = poly.getTriangulation();
+                /* SHORTSIMPLEX<Integer>.key contains the indices of the generators of the simplices. 
+                * The generators are in the Matrix. Generators which end with 1 are vertices 
+                * and the ones ending with 0 are rays.
+                */
+                for(const auto &simplex : decomp.first) {
+                    Matrix<Integer> r(0, d), v(0, d + 1);
+                    map<vector<Integer>, bool> polytope_corner;
+
+                    // cout<<"cro\n";
+                    for(const auto &k : simplex.key) {
+                        vector<Integer> vec = decomp.second[k];
+                        // cout<<vec;
+                        // fflush(stdout);
+                        if(!vec.back()) {
+                            //ray of simplex
+                            vec.pop_back();
+                            //normaliz returns simplices with periods that are reduced from the set of original periods. We make sure the periods are subsets of the original periods of our face
+                            r.append(min_vec_to_vec[vec]);
+                        }
+                        else {
+                            //vertex of simplex
+                            v.append(vec);
+                        }
+
+                    }
+                    if(!v.nr_of_rows()) {
+                        //the simplex is empty.
+                        continue;
+                    }
+                    if(!r.nr_of_rows()) {
+                        //polytope. We don't do anything since the vertices will already have been included in the final semilinear set
+                        continue;
+                    }
+                    /* We want to compute the interior of the convex polyhedron with polytope v and recession cone r.
+                    * The rays of the simplices are subsets of the rays in the arrangement and are linearly independent, so we can get the fundamental parallelepiped of cone(r)
+                    * to get the integer points of cone(C)
+                    */
+                    Cone<Integer> paral(Type::vertices, v, Type::cone, r);
+                    paral.compute(ConeProperty::ModuleGeneratorsOverOriginalMonoid);
+                    vector<vector<Integer>> M = paral.getModuleGeneratorsOverOriginalMonoid();
+                    //we get rid of homogenizing coordinate
+                    for(auto &m : M) {
+                        m.pop_back();
+                    }
+                    
+                    s.push_back(make_pair(M, r));
+                }
             }
-
-
-            // cout<<"eq\n";
-            // for(int i = 0; i < eq.nr_of_rows(); ++i) {
-            //     cout<<eq[i];
-            // }
-            // cout<<"ineq\n";
-            // for(int i = 0; i < ineq.nr_of_rows(); ++i) {
-            //     cout<<ineq[i];
-            // }
-            // cout<<"base:\n";
-            // for(int i = 0; i < recession_cone.nr_of_rows(); ++i) {
-            //     cout<<recession_cone[i];
-            // }
-            // cout<<"periodic\n";
-            // for(int i = 0; i < polytope.nr_of_rows(); ++i) {
-            //     cout<<polytope[i];
-            // }
-            // cout<<"\n";
-
-
-            polytope.resize_columns(d);
-            recession_cone.resize_columns(d);
-            s.push_back(make_pair(polytope, recession_cone));
         }
 
         for(auto face : cur->superfaces) {
-            if(!inQ[face]) {
+            if(inQ[face].vertices.empty()) {
                 Q.push(face);
-                inQ[face] = 1;
             }
+            if(face->dim == 0) {
+                inQ[face].vertices.insert(face->point);
+            }
+            else if(face->dim == 1 && face->subfaces.size() == 1) {
+                FaceNode* v = *face->subfaces.begin();
+                inQ[face].rays.insert(get_direction(v->point, face->point));
+            }
+            inQ[face].add(inQ[cur]);
         }
     }
+
+    cout<<"xd";
+    fflush(stdout);
 
     return s;
 }

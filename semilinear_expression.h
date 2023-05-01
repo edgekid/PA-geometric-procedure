@@ -51,10 +51,11 @@ public:
     void Union();
     void ProjectCoordinateGen(int c); //project away coordinate c for the polyhedra in generator representation
     void ProjectCoordinateConstr(int c); //project away coordinate c for the polyhedra in constraint representation
-
+    
+    int dim; //dimension of the expression
+    vector<int> dv; //auxiliary vector
+    
     bool in_constraint; //0 if the node represents a polyhedron in generator representation; 1 if in constraint representation
-    int dim;
-    vector<int> dv;
 
     SemilinearSet semilinear_set; //the semilinear set this node represents if it is in generator representation
     

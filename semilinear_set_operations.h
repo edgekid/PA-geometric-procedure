@@ -164,10 +164,15 @@ inline void get_linearly_independent_sl(SemilinearSet &s, const HybridLS &h) {
         intersect(t, a, b);
 
         //Create the hybrid linear set for the set Qi of periods
+        map<vector<Integer>, bool> in_A;
         Matrix<Integer> A(0, dim);
         for(int i = 0; i < (int)t[0].first.nr_of_rows(); ++i) {
             for(int j = 0; j < (int)h.first.nr_of_rows(); ++j) {
-                A.append(v_add(h.first[j], t[0].first[i]));
+                vector<Integer> a = v_add(h.first[j], t[0].first[i]);
+                if(!in_A[a]) {
+                    in_A[a] = 1;
+                    A.append(a);
+                }
             }
         }
         s.push_back(make_pair(A, Qi));

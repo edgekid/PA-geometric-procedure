@@ -89,13 +89,11 @@ void SENode::ComputeOperation() {
 
         default:
             if(left_child->in_constraint) {
-                left_child->ProjectCoordinateConstr(op);
-                sys_ineq = left_child->sys_ineq;
+                left_child->TranslateToSemilinearSet();
+                in_constraint = false;
             }
-            else {
-                left_child->ProjectCoordinateGen(op);
-                semilinear_set = left_child->semilinear_set;
-            }
+            left_child->ProjectCoordinateGen(op);
+            semilinear_set = left_child->semilinear_set;
             dv = left_child->dv;
             dim = left_child->dim;
             break;
@@ -262,9 +260,16 @@ void SENode::Complement() {
             }
         }
     }
+
+    //We get the periodic sets of the hybrid linear sets of the current semilinear set with the periodic vectors as columns
+    vector<Matrix<Integer>> periodic_sets;
+    for(auto hl : proper_sls) {
+        periodic_sets.push_back(hl.second.transpose());
+    }
+
     //We get the arrangement of these hyperplanes
-    Arrangement *arr = new Arrangement(dim);
-    arr->ConstructArrangement(hyperplanes);
+    Arrangement *arr = new Arrangement(hyperplanes, periodic_sets, dim);
+    arr->ConstructArrangement();
     SemilinearSet s = arr->GetZArrangement();
 
     semilinear_set.clear();
@@ -277,6 +282,10 @@ void SENode::Complement() {
             if(!get_membership(h.first[i], proper_sls)) {
                 E.append(h.first[i]);
             }
+        }
+
+        if(!E.nr_of_rows()) {
+            continue;
         }
 
         //making sure periodic sets are within stricly one hybrid linear set

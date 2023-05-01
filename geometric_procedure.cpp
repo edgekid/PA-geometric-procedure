@@ -57,7 +57,7 @@ void test1() {
 
     
     vector<Integer> v4{-1, 2, -1};
-    vector<Integer> v5{-20, -10, -25};
+    vector<Integer> v5{-20, 5, -25};
     geometric::SENode *in3 = new geometric::SENode(3, -2, false, new geometric::SENode(3, v4), new geometric::SENode(3, v5));
     // geometric::SENode *in4 = new geometric::SENode(-2, false, in2, in3);
 
@@ -70,8 +70,27 @@ void test1() {
     geometric::SENode *in5 = new geometric::SENode(3, -2, false, in4, new geometric::SENode(3, v8));
     // geometric::SENode *in4 = new geometric::SENode(-2, false, u1, in3);
 
-    // geometric::SENode *in6 = new geometric::SENode(3, -2, true, in5, u1);
-    geometric::SENode *acc = new geometric::SENode(3, 2, true, u1);
+    geometric::SENode *in6 = new geometric::SENode(3, -2, true, in5, u1);
+    // geometric::SENode *acc = new geometric::SENode(3, 2, true, u1);
+
+    in6->ComputeSubtree();
+
+    in6->PrintSolutions();
+
+    vector<Integer> ans = in6->GetSolution();
+    if(!ans.empty()) {
+        cout<<"Solution for x = "<<ans;
+    }
+    else {
+        cout<<"No solution";
+    }
+}
+
+void test2() {
+    vector<Integer> v{1, 2, 0};
+    vector<Integer> v2{-1, -2, 0};
+    geometric::SENode *in1 = new geometric::SENode(3, -2, false, new geometric::SENode(3, v), new geometric::SENode(3, v2));
+    geometric::SENode *acc = new geometric::SENode(3, 2, true, in1);
 
     acc->ComputeSubtree();
 
@@ -124,4 +143,20 @@ int main() {
     // example();
 
     test1();
+    
+    
+    // Matrix<Integer> first = readMatrix<Integer>("input.mat");
+    // Matrix<Integer> second = readMatrix<Integer>("second.mat");
+    // Matrix<Integer> third = readMatrix<Integer>("third.mat");
+    // Cone<Integer> cone(Type::vertices, first, Type::cone, second, Type::inhom_inequalities, third);
+    // cone.compute(ConeProperty::ConeDecomposition);
+    
+    // pair<vector<SHORTSIMPLEX<Integer>>, Matrix<Integer>> decomp = cone.getConeDecomposition();
+    // for(int i = 0; i < decomp.first.size(); ++i) {
+    //     for(auto k : decomp.first[i].key) {
+    //         cout<<decomp.second[k]<<"\n";
+    //     }   
+    //     cout<<decomp.first[i].Excluded;
+    //     cout<<endl;   
+    // }
 }
