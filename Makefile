@@ -17,3 +17,8 @@ geometric: $(SOURCES) $(HEADERS) $(LIBLINK) geometric_procedure.cpp
 
 libnorm: 
 	@$(MAKE) --directory=libnormaliz -f Makefile.classic $(LIBNAME)
+
+clean:
+	rm libnormaliz/*.o
+	rm libnormaliz/*.a
+	rm geometric_procedure.exe

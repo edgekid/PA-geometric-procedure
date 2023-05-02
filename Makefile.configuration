@@ -4,6 +4,10 @@
 ##
 
 NAKED = yes
+# fix static linking
+ifneq ($(MSYSTEM),MINGW64)
+	NMZ_SHARED = yes
+endif
 
 CXX = g++
 #CXX = clang++-13

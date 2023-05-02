@@ -11,15 +11,15 @@ typedef vector< pair< Matrix<Integer>, Matrix<Integer> > > SemilinearSet;
 
 //This struct is used to describe a face's polytope and recession cone.
 struct Polyhedron {
-    set<vector<Rational>> vertices; //polytope
-    set<vector<Rational>> rays; //recession cone
+    vector<vector<Rational>> vertices; //polytope
+    vector<vector<Rational>> rays; //recession cone
 
     void add(const Polyhedron &a) {
         for(const auto &it : a.vertices) {
-            vertices.insert(it);
+            vertices.push_back(it);
         }
         for(const auto &it : a.rays) {
-            rays.insert(it);
+            rays.push_back(it);
         }
     }
     int size() {
