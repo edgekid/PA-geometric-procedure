@@ -372,18 +372,6 @@ void Arrangement::AddHyperplane(Hyperplane h) {
         }
     }
 
-    // for(int k = 0; k <= dim; ++k) {
-    //     cout<<k<<" dim:\n";
-    //     for(auto f : L[k]) {
-    //         cout<<f->point;
-    //         cout<<"subfaces\n";
-    //         for(auto sf : f->subfaces) {
-    //             cout<<sf->point;
-    //         }
-    //         cout<<COLOR(marked_faces[f])<<" xd\n";
-    //     }
-    // }
-
     //Phase 3: Manipulate all marked faces inside the lists and create new faces if needed.
     for(int k = 0; k <= dim; ++k) {
         int s = L[k].size();
@@ -649,8 +637,6 @@ SemilinearSet Arrangement::GetZArrangement(){
     while(!Q.empty()) {
         FaceNode *cur = Q.front(); 
         Q.pop();
-
-        // cout<<cur->dim<<":\n";
     
         if(cur->dim != -1 && cur->dim != dim + 1) {
             if(cur->dim == 0) {
@@ -698,8 +684,6 @@ SemilinearSet Arrangement::GetZArrangement(){
                     v2.push_back(x * lambda);
                 }
                 inQ[cur].rays[0] = v2;
-
-                // cout<<v2<<"v2\n";
             }
             
             if(cur->dim != 0) {
@@ -757,11 +741,8 @@ SemilinearSet Arrangement::GetZArrangement(){
                     Matrix<Integer> r(0, d), v(0, d + 1);
                     map<vector<Integer>, bool> polytope_corner;
 
-                    // cout<<"cro\n";
                     for(const auto &k : simplex.key) {
                         vector<Integer> vec = decomp.second[k];
-                        // cout<<vec;
-                        // fflush(stdout);
                         if(!vec.back()) {
                             //ray of simplex
                             vec.pop_back();
@@ -791,18 +772,7 @@ SemilinearSet Arrangement::GetZArrangement(){
                     vector<vector<Integer>> M = paral.getModuleGeneratorsOverOriginalMonoid();
                     for(auto &m : M) {
                         m.pop_back();
-                        // cout<<m<<"module";
                     }
-                    
-                    // cout<<"vert\n";
-                    // for(int i = 0; i < v.nr_of_rows(); ++i) {
-                    //     cout<<v[i];
-                    // }
-                    // cout<<"rays\n";
-                    // for(int i = 0; i < r.nr_of_rows(); ++i) {
-                    //     cout<<r[i];
-                    // }
-                    // fflush(stdout);
                     s.push_back(make_pair(M, r));
                 }
             }
@@ -822,9 +792,6 @@ SemilinearSet Arrangement::GetZArrangement(){
             inQ[face].add(inQ[cur]);
         }
     }
-
-    cout<<"xd";
-    fflush(stdout);
 
     return s;
 }

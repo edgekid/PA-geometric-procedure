@@ -9,7 +9,7 @@ NMZ_SHARED = yes
 
 CXX = g++
 #CXX = clang++-13
-CXXFLAGS += -std=c++14 -Wall -pedantic -Wno-sign-compare -Wno-deprecated  -funroll-loops -fPIC -g
+CXXFLAGS += -std=c++17 -Wall -pedantic -Wno-sign-compare -Wno-deprecated  -funroll-loops -fPIC -g
 #CXXFLAGS += -pg      ## profiling
 #CXXFLAGS += -DNDEBUG ## disables asserts
 

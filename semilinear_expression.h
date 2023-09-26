@@ -56,10 +56,16 @@ public:
     vector<int> dv; //auxiliary vector
     
     bool in_constraint; //0 if the node represents a polyhedron in generator representation; 1 if in constraint representation
+    bool trivial; // true if the node is a terminal and the vector it represents is an invalid inequality of type 0 = x for x non-zero
 
     SemilinearSet semilinear_set; //the semilinear set this node represents if it is in generator representation
     
     Matrix<Integer> sys_ineq; //the system of inequalities(half spaces) this node contains if it is in constraint representation
+
+    // helper functions used for changing and printing the formula tree
+    void setDim(int d);
+    void negate();
+    string printTree(int no_tabs = 0);
 };
 
 }

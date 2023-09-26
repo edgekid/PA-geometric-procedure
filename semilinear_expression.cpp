@@ -8,6 +8,7 @@ namespace geometric {
 void SENode::init() {
     in_constraint = true;
     dv.resize(dim);
+    trivial = 0;
 }
 
 SENode::SENode() : dim(0), op(0), complement(false) {
@@ -23,6 +24,11 @@ SENode::SENode(int dim, short op, bool complement, SENode* left, SENode* right) 
 SENode::SENode(int dim, const vector<Integer>& v, short op, bool complement, SENode* left, SENode* right) : dim(dim), op(op), complement(complement), left_child(left), right_child(right) {
     sys_ineq = Matrix<Integer>(v);
     init();
+    Integer s = 0;
+    for(int i = 0; i < v.size() - 1; ++i) {
+        s += (v[i] != 0);
+    }
+    trivial = (v[v.size() - 1] != 0 && !s);
 }
 
 vector<Integer> SENode::GetSolution() {
@@ -91,6 +97,7 @@ void SENode::ComputeOperation() {
             if(left_child->in_constraint) {
                 left_child->TranslateToSemilinearSet();
                 in_constraint = false;
+                trivial = left_child->trivial;
             }
             left_child->ProjectCoordinateGen(op);
             semilinear_set = left_child->semilinear_set;
@@ -102,6 +109,13 @@ void SENode::ComputeOperation() {
 
 //translate the polyhedrons into a semilinear set
 void SENode::TranslateToSemilinearSet() {
+    in_constraint = false;
+    if(trivial) { 
+        //the system solutions is empty - we skip
+        dim--;
+        return;
+    }
+
     Cone<Integer> polyhedron = Cone<Integer>(Type::inhom_inequalities, sys_ineq);
     polyhedron.compute(ConeProperty::HilbertBasis);
     
@@ -122,8 +136,6 @@ void SENode::TranslateToSemilinearSet() {
     recession_cone.resize_columns(dim);
 
     semilinear_set.push_back(make_pair(polytope, recession_cone));
-
-    in_constraint = false;
 }
 
 void SENode::ProjectCoordinateGen(int coord) {
@@ -192,6 +204,7 @@ void SENode::Union() {
         right_child->TranslateToSemilinearSet();
         dim = right_child->dim;
     }
+    
     add(semilinear_set, left_child->semilinear_set, right_child->semilinear_set);
 
     in_constraint = false;
@@ -200,6 +213,10 @@ void SENode::Union() {
 void SENode::Intersection() {
     //If both are still in constraint, just create a new polyhedron with all the constraints from both.
     if(left_child->in_constraint && right_child->in_constraint) {
+        if(left_child->trivial || right_child->trivial) {
+            trivial = true;
+            return;
+        }
         size_t cur_dim = left_child->sys_ineq.nr_of_columns();
         sys_ineq.set_nc(cur_dim);
         sys_ineq.append(left_child->sys_ineq);
@@ -224,7 +241,7 @@ void SENode::Complement() {
     //make all hybrid linear sets in current semilinear set have linearly independent (proper) periods
     SemilinearSet proper_sls;
     for(auto h : semilinear_set) {
-        get_linearly_independent_sl(proper_sls, h);
+        get_linearly_independent_sl(proper_sls, h);  
     }
 
     vector<Hyperplane> hyperplanes;
@@ -243,7 +260,10 @@ void SENode::Complement() {
         for(auto vec : hl.first.get_elements()) {
             for(auto v : support_hyperplanes) {
                 Hyperplane h = Hyperplane(v, v_scalar_product(v, vec));
-                if(!included[h]) {//we make sure we dont include the same hyperplane twice
+                vector<Integer> v_m = v;
+                v_scalar_multiplication(v_m, Integer(-1));
+                Hyperplane h_m = Hyperplane(v_m, -v_scalar_product(v, vec));
+                if(!included[h] && !included[h_m]) {//we make sure we dont include the same hyperplane twice
                     hyperplanes.push_back(h);
                     included[h] = 1; 
                 }
@@ -252,7 +272,10 @@ void SENode::Complement() {
             for(int i = 0; i < dim; ++i) {
                 sv[i]++;
                 Hyperplane h = Hyperplane(sv, v_scalar_product(sv, vec));
-                if(!included[h]) {//we make sure we dont include the same hyperplane twice
+                sv[i] -= 2;
+                Hyperplane h_m = Hyperplane(sv, -v_scalar_product(sv, vec));
+                sv[i] += 2;
+                if(!included[h] && !included[h_m]) {//we make sure we dont include the same hyperplane twice
                     hyperplanes.push_back(h);
                     included[h] = 1; 
                 }
@@ -299,5 +322,53 @@ void SENode::Complement() {
         }
     }
 }
-    
+
+void SENode::setDim(int d) {
+    dim = d;
+    size_t tmp = sys_ineq.nr_of_columns();
+
+    sys_ineq.resize_columns(dim);
+    if(sys_ineq.nr_of_rows()) {
+        //terminal node
+        sys_ineq[0][dim - 1] = sys_ineq[0][tmp - 1];
+        if(tmp != dim) {
+            sys_ineq[0][tmp - 1] = 0;
+        }
+    }
+    dv.resize(dim);
+    if(left_child) {
+        left_child->setDim(d);
+    }
+    if(right_child) {
+        right_child->setDim(d);
+    }
+}
+
+void SENode::negate() {
+    complement = !complement;
+}
+
+string SENode::printTree(int no_tabs) {
+    string s = "";
+    for(int i = 0; i < no_tabs; ++i) s += "\t";
+    s += "(Operation " + to_string(op) + ", Complement " + to_string(complement) + ", Dim " + to_string(dim) + ": ";
+    if(!op) {
+        s += "[ ";
+        for(auto it : sys_ineq[0]) {
+            s += it.get_str() + " ";
+        }
+        s += "]";
+    }
+    s += "\n";
+    if(left_child) {
+        s += left_child->printTree(no_tabs + 1);
+    }
+    if(right_child) {
+        s += right_child->printTree(no_tabs + 1);
+    }
+    for(int i = 0; i < no_tabs; ++i) s += "\t";
+    s += ")\n";
+    return s;
+}
+
 }

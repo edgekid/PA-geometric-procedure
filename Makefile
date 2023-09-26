@@ -7,13 +7,16 @@ include Makefile.configuration
 SOURCES = $(wildcard *.cpp)
 HEADERS = $(wildcard *.h)
 
+ANTLR_HEADER = -Iparser/antlr4/include/antlr4-runtime
+ANTLR_LINK = parser/antlr4/lib/libantlr4-runtime.a
+
 default: linknormaliz
 
 linknormaliz: libnorm
 	@$(MAKE) geometric
 # must force the kinking of libnormaliz/libnormaloiz.a or so
-geometric: $(SOURCES) $(HEADERS) $(LIBLINK) geometric_procedure.cpp
-	$(CXX) $(CXXFLAGS) $(NORMFLAGS) geometric_procedure.cpp semilinear_expression.cpp arrangement.cpp $(LIBLINK) $(LINKFLAGS) -o geometric_procedure
+geometric: $(SOURCES) $(HEADERS) $(LIBLINK) $(ANTLR_LINK) geometric_procedure.cpp
+	$(CXX) $(CXXFLAGS) $(NORMFLAGS) geometric_procedure.cpp semilinear_expression.cpp arrangement.cpp parser/*.cpp $(LIBLINK) $(LINKFLAGS) $(ANTLR_HEADER) $(ANTLR_LINK) -o geometric_procedure
 
 libnorm: 
 	@$(MAKE) --directory=libnormaliz -f Makefile.classic $(LIBNAME)
