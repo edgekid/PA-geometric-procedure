@@ -6,7 +6,7 @@ In order to build the project the latest version of GNU MP (The GNU Multiple Pre
 
 ## For Linux
 
-#Clone the repo
+# Clone the repo
 
 git clone https://github.com/edgekid/PA-geometric-procedure.git
 
