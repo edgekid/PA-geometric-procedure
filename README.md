@@ -1,38 +1,38 @@
-##Requirements
+## Requirements
 
 In order to build the project the latest version of GNU MP (The GNU Multiple Precision Arithmetic Library) is needed.
 
-##Installation
+## Installation
 
-##For Linux
-
-#Clone the repo
-
-git clone https://github.com/edgekid/PA-geometric-procedure.git
-
-#Build the project by running
-
-make
-
-#To run, type
-
-./geometric_procedure.exe
-
-##For Windows
+## For Linux
 
 #Clone the repo
 
 git clone https://github.com/edgekid/PA-geometric-procedure.git
 
-#Build the project by running
+# Build the project by running
 
 make
 
-#To run, type
+# To run, type
 
 ./geometric_procedure.exe
 
-##Using the software
+## For Windows
+
+# Clone the repo
+
+git clone https://github.com/edgekid/PA-geometric-procedure.git
+
+# Build the project by running
+
+make
+
+# To run, type
+
+./geometric_procedure.exe
+
+## Using the software
 
 A string given as input is accepted if it is derivable from the grammar specified in parser/LIA.g4, which is a grammar for a fragment in Linear Integer Arithmetic.
 Currently the software supports inputs which are formulas that are in Prenex normal form.
